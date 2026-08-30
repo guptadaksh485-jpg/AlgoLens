@@ -7,6 +7,13 @@ const contestSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    // Set only for contests brought in by a Codeforces sync, so re-syncing
+    // updates the same doc instead of creating duplicates. Manually-added
+    // contests leave this null.
+    cfContestId: {
+      type: Number,
+      default: null,
+    },
     name: {
       type: String,
       required: true,
@@ -45,6 +52,11 @@ const contestSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+contestSchema.index(
+  { user: 1, cfContestId: 1 },
+  { unique: true, partialFilterExpression: { cfContestId: { $type: "number" } } }
 );
 
 module.exports = mongoose.model("Contest", contestSchema);

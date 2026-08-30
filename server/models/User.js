@@ -35,9 +35,13 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // Each entry is a "YYYY-MM-DD" string for a day the user logged at least
-    // one solved/attempted problem. Used to compute the current streak and
-    // the weekly activity chart without needing a separate daily-log collection.
+    // Set after a successful Codeforces sync; also used to rate-limit re-syncs.
+    cfLastSyncedAt: {
+      type: Date,
+      default: null,
+    },
+    // "YYYY-MM-DD" strings for days with CF activity - powers streak +
+    // weekly activity without a separate daily-log collection.
     activityDates: {
       type: [String],
       default: [],

@@ -1,76 +1,63 @@
 # AlgoLens
 
-An AI-powered competitive programming analytics platform. Track contests, monitor topic-wise
-problem-solving progress, and get Gemini-generated coaching feedback — contest reviews, an
-overall progress analysis, a weekly practice plan, and targeted problem recommendations.
+Competitive programming analytics platform. Tracks Codeforces contests and problem-solving
+progress, with Gemini-generated coaching feedback (contest reviews, progress analysis,
+weekly practice plans, targeted problem recommendations).
 
 ## Tech Stack
 
 **Frontend:** React (Vite), Tailwind CSS, React Router, Axios, Recharts
-**Backend:** Node.js, Express, MongoDB, Mongoose, JWT
-**AI:** Google Gemini API
-**Deployment:** Vercel (frontend), Render (backend), MongoDB Atlas (database)
-
-## Project Structure
-
-```
-algolens/
-├── client/   # React frontend
-└── server/   # Express API
-```
+**Backend:** Node.js, Express, MongoDB, Mongoose, JWT, Redis
+**External:** Codeforces API, Google Gemini API
+**Testing:** Jest, Supertest, mongodb-memory-server
 
 ## Running Locally
 
-### 1. Backend
+### Docker Compose
 
 ```bash
-cd server
-npm install
-cp .env.example .env   # then fill in MONGO_URI, JWT_SECRET, GEMINI_API_KEY
-npm run dev
+cp server/.env.example .env   # fill in GEMINI_API_KEY at minimum
+docker compose up --build
 ```
 
-The API runs on `http://localhost:5000` by default.
+Starts MongoDB, Redis, the API (port 5000), and the frontend (port 5173).
 
-### 2. Frontend
+### Manual
 
 ```bash
-cd client
-npm install
-cp .env.example .env   # VITE_API_URL should point at your backend
-npm run dev
+cd server && npm install && cp .env.example .env && npm run dev   # http://localhost:5000
+cd client && npm install && cp .env.example .env && npm run dev   # http://localhost:5173
 ```
-
-The app runs on `http://localhost:5173` by default.
 
 ## Environment Variables
 
 **server/.env**
-- `MONGO_URI` — MongoDB Atlas connection string
-- `JWT_SECRET` — any long random string
-- `GEMINI_API_KEY` — from Google AI Studio
-- `CLIENT_URL` — used for CORS, e.g. `http://localhost:5173`
+- `MONGO_URI`, `JWT_SECRET`, `GEMINI_API_KEY` — required
+- `GEMINI_MODEL` — defaults to `gemini-3.7-flash`
+- `REDIS_URL` — optional; caching/rate limiting are skipped (not broken) if unset
+- `CLIENT_URL` — used for CORS
 
 **client/.env**
-- `VITE_API_URL` — base URL of the backend API, e.g. `http://localhost:5000/api`
+- `VITE_API_URL` — base URL of the backend API
 
-## AI Features
+## How It Works
 
-AlgoLens does **not** include a chatbot. Gemini is only used to analyze structured data
-already stored in the app, in four places:
+Codeforces sync (Profile → "Sync Codeforces Data") fetches `user.info`, `user.status`, and
+`user.rating`, and upserts submissions and contest history into MongoDB. Topic-wise,
+difficulty-wise, and Strong/Weak Topics analytics are computed from that stored data with
+plain Mongo aggregations — one source of truth, no AI involved in the numbers. Problem
+recommendations pick real unsolved problems from the CF problemset; Gemini only writes the
+explanation for each pick. Sync is rate-limited (Redis) and switching Codeforces handles
+clears the previous handle's synced data first.
 
-1. **Contest Review** — generated automatically whenever a contest is added.
-2. **Analyze My Progress** — looks at rating history, contest history, and topic stats.
-3. **Weekly Practice Plan** — takes a target rating and hours/day, returns a 7-day plan.
-4. **Problem Recommendations** — 5 problems targeted at the user's weakest topics.
+## Testing
 
-## Notes on Design Decisions
+```bash
+cd server && npm test
+```
 
-- No `services/` or `repositories/` layer — route handlers talk to Mongoose models directly.
-  This is a solo project, not a large team codebase, so that extra indirection isn't earning
-  its keep yet.
-- Daily activity (for the streak and weekly activity chart) is tracked as a simple array of
-  `"YYYY-MM-DD"` strings on the `User` document rather than a separate collection, since it's
-  just a presence check per day, not detailed per-problem logging.
-- AI outputs are persisted (`AIAnalysis` collection, and `review` embedded on `Contest`) so
-  users can look back at previous analyses instead of losing them after the API call.
+Pure-logic suites (cache, CF error classification, streak calculator, Gemini JSON
+parsing/retry) run anywhere. The DB-backed suites use `mongodb-memory-server`, which
+downloads a Mongo binary on first run and needs outbound internet access.
+
+`.github/workflows/ci.yml` runs the server tests and client build on every push/PR to `main`.

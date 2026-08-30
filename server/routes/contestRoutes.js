@@ -1,24 +1,24 @@
 const express = require("express");
 const Contest = require("../models/Contest");
-const Topic = require("../models/Topic");
 const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
+const { getTopicWiseStats } = require("../utils/codeforcesAnalytics");
 const {
-  callGemini,
-  parseJsonResponse,
+  callGeminiForJson,
   buildContestReviewPrompt,
 } = require("../utils/gemini");
 
 const router = express.Router();
 
-// Keeps User.currentRating in sync with whichever contest is most recent
-// by date. Called after any add/edit/delete so the dashboard always shows
-// an accurate number without the client having to recompute it.
+// currentRating is authoritative from Codeforces sync once the user has
+// synced at least once; manual contests only drive it before that.
 const syncCurrentRating = async (userId) => {
+  const user = await User.findById(userId);
+  if (user.cfLastSyncedAt) return;
+
   const latest = await Contest.findOne({ user: userId }).sort({ date: -1 });
-  await User.findByIdAndUpdate(userId, {
-    currentRating: latest ? latest.ratingAfter : 0,
-  });
+  user.currentRating = latest ? latest.ratingAfter : 0;
+  await user.save();
 };
 
 // @route   GET /api/contests
@@ -52,14 +52,11 @@ router.post("/", protect, async (req, res) => {
 
     await syncCurrentRating(req.user._id);
 
-    // Generate the AI review right away. If Gemini fails for any reason
-    // (missing key, rate limit, network) we still keep the contest -
-    // the user can retry the review later instead of losing their data.
+    // Keep the contest even if the review generation fails - retryable below.
     try {
-      const topics = await Topic.find({ user: req.user._id });
+      const topics = await getTopicWiseStats(req.user._id);
       const prompt = buildContestReviewPrompt(contest, topics);
-      const rawText = await callGemini(prompt);
-      const parsed = parseJsonResponse(rawText);
+      const parsed = await callGeminiForJson(prompt);
 
       contest.review = { ...parsed, generatedAt: new Date() };
       await contest.save();
@@ -80,10 +77,9 @@ router.post("/:id/review", protect, async (req, res) => {
     const contest = await Contest.findOne({ _id: req.params.id, user: req.user._id });
     if (!contest) return res.status(404).json({ message: "Contest not found" });
 
-    const topics = await Topic.find({ user: req.user._id });
+    const topics = await getTopicWiseStats(req.user._id);
     const prompt = buildContestReviewPrompt(contest, topics);
-    const rawText = await callGemini(prompt);
-    const parsed = parseJsonResponse(rawText);
+    const parsed = await callGeminiForJson(prompt);
 
     contest.review = { ...parsed, generatedAt: new Date() };
     await contest.save();

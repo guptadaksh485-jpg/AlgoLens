@@ -1,24 +1,23 @@
 const express = require("express");
 const Contest = require("../models/Contest");
-const Topic = require("../models/Topic");
 const { protect } = require("../middleware/authMiddleware");
 const { calculateStreak, buildWeeklyActivity } = require("../utils/streakCalculator");
+const { getTopicWiseStats, getSolvedProblems } = require("../utils/codeforcesAnalytics");
 
 const router = express.Router();
 
 // @route   GET /api/dashboard
-// Returns everything the dashboard page needs in a single request so the
-// client doesn't have to fire off four separate calls on load.
 router.get("/", protect, async (req, res) => {
   try {
     const contests = await Contest.find({ user: req.user._id }).sort({ date: 1 });
-    const topics = await Topic.find({ user: req.user._id });
+    const [topicWise, solvedProblems] = await Promise.all([
+      getTopicWiseStats(req.user._id),
+      getSolvedProblems(req.user._id),
+    ]);
 
     const highestRating = contests.length
       ? Math.max(...contests.map((c) => c.ratingAfter))
       : req.user.currentRating;
-
-    const totalProblemsSolved = topics.reduce((sum, t) => sum + t.solved, 0);
 
     const ratingProgress = contests.map((c) => ({
       date: c.date,
@@ -26,8 +25,8 @@ router.get("/", protect, async (req, res) => {
       rating: c.ratingAfter,
     }));
 
-    const topicDistribution = topics.map((t) => ({
-      topic: t.name,
+    const topicDistribution = topicWise.map((t) => ({
+      topic: t.tag,
       solved: t.solved,
       attempted: t.attempted,
     }));
@@ -37,7 +36,7 @@ router.get("/", protect, async (req, res) => {
 
     res.json({
       stats: {
-        totalProblemsSolved,
+        totalProblemsSolved: solvedProblems.length,
         currentRating: req.user.currentRating,
         highestRating,
         contestCount: contests.length,

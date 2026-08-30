@@ -1,10 +1,8 @@
-// Converts a Date to a "YYYY-MM-DD" string in UTC so we don't have to worry
-// about timezone drift between the server and the client.
+// "YYYY-MM-DD" in UTC, so server/client don't drift across timezones.
 const toDateString = (date) => date.toISOString().split("T")[0];
 
-// Given the list of "YYYY-MM-DD" strings a user has logged activity on,
-// returns how many consecutive days (counting back from today, or from
-// yesterday if nothing was logged today) the user has stayed active.
+// Consecutive active days counting back from today (or yesterday, if
+// today has no activity yet).
 const calculateStreak = (activityDates) => {
   if (!activityDates || activityDates.length === 0) return 0;
 
@@ -12,8 +10,6 @@ const calculateStreak = (activityDates) => {
   let streak = 0;
   const cursor = new Date();
 
-  // If today has no activity yet, start checking from yesterday instead,
-  // so the streak doesn't reset to 0 the moment the clock passes midnight.
   if (!dateSet.has(toDateString(cursor))) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
@@ -26,9 +22,8 @@ const calculateStreak = (activityDates) => {
   return streak;
 };
 
-// Returns solved-problem counts for the last 7 days (including today),
-// oldest first, for the Weekly Activity chart. `activityDates` only tells us
-// *that* a day was active, so we pair it with topic docs to get counts.
+// Last 7 days (oldest first) with whether each was an active day, for the
+// Weekly Activity chart.
 const buildWeeklyActivity = (activityDates) => {
   const dateSet = new Set(activityDates);
   const days = [];

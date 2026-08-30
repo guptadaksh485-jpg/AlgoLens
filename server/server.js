@@ -7,9 +7,9 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const contestRoutes = require("./routes/contestRoutes");
-const topicRoutes = require("./routes/topicRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const codeforcesRoutes = require("./routes/codeforcesRoutes");
 
 connectDB();
 
@@ -23,9 +23,9 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/contests", contestRoutes);
-app.use("/api/topics", topicRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/codeforces", codeforcesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

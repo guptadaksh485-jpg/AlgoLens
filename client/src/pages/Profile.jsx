@@ -11,6 +11,22 @@ const Profile = () => {
   const [targetRating, setTargetRating] = useState(user?.targetRating || 1600);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      const { data } = await api.post("/codeforces/sync");
+      updateUser({ currentRating: data.cfRating });
+      setSyncMessage(`Synced ${data.submissionsSeen} submissions. Rating: ${data.cfRating}`);
+    } catch (err) {
+      setSyncMessage(err.response?.data?.message || "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +65,14 @@ const Profile = () => {
             className="input-field"
             placeholder="Codeforces handle, optional"
           />
+          {user?.handle && (
+            <div className="mt-2 flex items-center gap-3">
+              <button type="button" onClick={handleSync} disabled={syncing} className="btn-secondary text-xs">
+                {syncing ? "Syncing..." : "Sync Codeforces Data"}
+              </button>
+              {syncMessage && <span className="text-xs text-zinc-500 dark:text-zinc-400">{syncMessage}</span>}
+            </div>
+          )}
         </div>
 
         <div>

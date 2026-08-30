@@ -1,10 +1,7 @@
 const mongoose = require("mongoose");
 
-// One collection holds all three "standalone" AI features (everything except
-// contest review, which lives on the Contest document itself). The `type`
-// field tells us which shape `content` is in, so we don't need three
-// near-identical collections for what is really the same "AI ran and we
-// saved the result" pattern.
+// One collection for all three "standalone" AI features (contest review
+// lives on Contest instead); `type` says which shape `content` is in.
 const aiAnalysisSchema = new mongoose.Schema(
   {
     user: {
